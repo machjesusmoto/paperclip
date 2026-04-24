@@ -432,7 +432,6 @@ export function FileViewerSheet({
   const state = typeof stateProp !== "undefined" ? stateProp : viewer.state;
   const computedOpen = typeof openProp === "boolean" ? openProp : state !== null || showPromptWhenEmpty;
 
-  const [loadStart, setLoadStart] = useState<number>(() => Date.now());
   const [elapsedMs, setElapsedMs] = useState(0);
   const [copiedField, setCopiedField] = useState<"path" | "link" | null>(null);
   const [announcement, setAnnouncement] = useState<string>("");
@@ -442,10 +441,10 @@ export function FileViewerSheet({
       setElapsedMs(0);
       return;
     }
-    setLoadStart(Date.now());
+    const now = Date.now();
     setElapsedMs(0);
     const interval = window.setInterval(() => {
-      setElapsedMs(Date.now() - loadStart);
+      setElapsedMs(Date.now() - now);
     }, 75);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

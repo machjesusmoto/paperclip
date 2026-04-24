@@ -35,6 +35,9 @@ export function createFileResourceLimiter(opts: {
   return {
     acquire(key: string) {
       const now = Date.now();
+      for (const [windowKey, existing] of windowsByKey) {
+        if (now - existing.startedAt >= windowMs) windowsByKey.delete(windowKey);
+      }
       const window = windowsByKey.get(key);
       if (!window || now - window.startedAt >= windowMs) {
         windowsByKey.set(key, { startedAt: now, count: 1 });

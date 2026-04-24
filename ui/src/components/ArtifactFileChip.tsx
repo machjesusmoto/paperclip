@@ -36,13 +36,23 @@ export function ArtifactFileChip({
     ? `Open ${workspaceFileRef.displayPath}${lineSuffix} in the file viewer`
     : `Workspace file ${workspaceFileRef.displayPath}${lineSuffix}`);
 
-  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const classNames = cn(
+    "paperclip-artifact-file-chip inline-flex items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-xs leading-tight text-foreground/90 align-baseline no-underline hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+    canOpen ? "cursor-pointer" : null,
+    className,
+  );
+  const content = (
+    <>
+      {showIcon ? <FileCode2 aria-hidden="true" className="h-3 w-3 shrink-0 opacity-70" /> : null}
+      <span className="truncate max-w-[38ch]">{display}</span>
+    </>
+  );
+
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     if (event.button !== 0) return;
-    if (!canOpen) return;
-    event.preventDefault();
     if (onOpen) onOpen(workspaceFileRef);
     else {
       const workspace = workspaceFileRef.workspaceKind === "execution_workspace" ? "execution" : "project";
@@ -55,22 +65,31 @@ export function ArtifactFileChip({
     }
   };
 
+  if (!canOpen) {
+    return (
+      <span
+        data-artifact-file-chip="true"
+        data-workspace-file-path={workspaceFileRef.relativePath}
+        aria-label={ariaLabel}
+        title={tooltip}
+        className={classNames}
+      >
+        {content}
+      </span>
+    );
+  }
+
   return (
-    <a
-      href="#"
-      role={canOpen ? "button" : undefined}
+    <button
+      type="button"
       data-artifact-file-chip="true"
       data-workspace-file-path={workspaceFileRef.relativePath}
       aria-label={ariaLabel}
       title={tooltip}
-      className={cn(
-        "paperclip-artifact-file-chip inline-flex items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-xs leading-tight text-foreground/90 align-baseline no-underline hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        className,
-      )}
+      className={classNames}
       onClick={handleClick}
     >
-      {showIcon ? <FileCode2 aria-hidden="true" className="h-3 w-3 shrink-0 opacity-70" /> : null}
-      <span className="truncate max-w-[38ch]">{display}</span>
-    </a>
+      {content}
+    </button>
   );
 }
