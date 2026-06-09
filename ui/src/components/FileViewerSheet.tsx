@@ -497,7 +497,7 @@ export function FileViewerSheet({
   return (
     <Dialog open={computedOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex h-[min(840px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-[min(1120px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] sm:max-w-[1120px]"
+        className="flex h-[min(840px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-[min(1280px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0 sm:w-[94vw] sm:max-w-[1280px]"
         aria-labelledby={FILE_VIEWER_LABELLED_BY_ID}
         aria-describedby={FILE_VIEWER_DESCRIBED_BY_ID}
         showCloseButton={false}
@@ -510,14 +510,14 @@ export function FileViewerSheet({
         }}
       >
         <DialogHeader className="border-b border-border gap-1 p-3">
-          <div className="flex items-start gap-2">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
             {browseMode ? (
               <FolderSearch aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             ) : (
               <FileCode2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             )}
             <div className="min-w-0 flex-1">
-              <DialogTitle id={FILE_VIEWER_LABELLED_BY_ID} className="truncate text-sm">
+              <DialogTitle id={FILE_VIEWER_LABELLED_BY_ID} className="whitespace-normal break-all text-sm leading-5">
                 {title}
               </DialogTitle>
               <DialogDescription
@@ -531,7 +531,7 @@ export function FileViewerSheet({
                 {description}
               </DialogDescription>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1 self-start">
               {cameFromBrowse ? (
                 <Button
                   type="button"
@@ -571,30 +571,17 @@ export function FileViewerSheet({
                   {copiedField === "link" ? <Check className="h-4 w-4 text-green-500" /> : <Link2 className="h-4 w-4" />}
                 </Button>
               ) : null}
-              {cameFromBrowse ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => handleOpenChange(false)}
-                  className="h-7 w-7"
-                  aria-label="Close file viewer"
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenChange(false)}
-                  className="h-7 px-2 text-xs"
-                  aria-label="Close file viewer"
-                >
-                  Close
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => handleOpenChange(false)}
+                className="h-7 w-7"
+                aria-label="Close file viewer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           {resolvedResource ? (

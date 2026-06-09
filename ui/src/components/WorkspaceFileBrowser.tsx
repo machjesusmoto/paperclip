@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Cloud, FileCode2, FolderOpen, Loader2, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Cloud, FileCode2, FolderOpen, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,22 @@ function basename(path: string): string {
 function dirname(path: string): string {
   const idx = path.lastIndexOf("/");
   return idx < 0 ? "" : path.slice(0, idx + 1);
+}
+
+function trimTrailingSlash(path: string): string {
+  return path.replace(/\/+$/, "");
+}
+
+function folderName(path: string): string {
+  const trimmed = trimTrailingSlash(path);
+  if (!trimmed) return "";
+  return basename(trimmed);
+}
+
+function normalizeFolderPrefix(path: string | null | undefined): string {
+  if (!path) return "";
+  const trimmed = path.replace(/^\/+/, "").replace(/\/+$/, "");
+  return trimmed ? `${trimmed}/` : "";
 }
 
 /**
@@ -155,50 +171,204 @@ function SourceSelector({
 
 interface WorkspaceFileRowProps {
   item: WorkspaceFileListItem;
-  optionId: string;
+  treeItemId: string;
   selected: boolean;
   showTimestamp: boolean;
+  depth: number;
   onOpen: () => void;
   onHover: () => void;
 }
 
-function WorkspaceFileRow({ item, optionId, selected, showTimestamp, onOpen, onHover }: WorkspaceFileRowProps) {
-  const name = basename(item.displayPath);
-  const dir = dirname(item.displayPath);
+function WorkspaceFileRow({ item, treeItemId, selected, showTimestamp, depth, onOpen, onHover }: WorkspaceFileRowProps) {
+  const name = basename(item.relativePath);
   const stamp = showTimestamp && item.modifiedAt ? timeAgo(item.modifiedAt) : null;
   return (
     <div
-      id={optionId}
-      role="option"
+      id={treeItemId}
+      role="treeitem"
       aria-selected={selected}
       onClick={onOpen}
       onMouseEnter={onHover}
       title={item.displayPath}
       className={cn(
-        "flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 sm:min-h-0",
+        "flex min-h-[36px] cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2 sm:min-h-0",
         selected ? "bg-accent" : "hover:bg-accent/60",
       )}
+      style={{ paddingLeft: `${0.5 + depth * 0.875}rem` }}
     >
       <FileCode2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      {/* Desktop (>=sm): single line, directory truncates and basename stays visible. */}
-      <span className="hidden min-w-0 flex-1 items-baseline gap-0 overflow-hidden sm:flex">
-        {dir ? (
-          <span className="min-w-0 shrink truncate font-mono text-xs text-muted-foreground">{dir}</span>
-        ) : null}
-        <span className="shrink-0 truncate font-mono text-xs text-foreground">{name}</span>
-      </span>
-      {/* Mobile (<sm): two lines, basename first so the filename is always readable. */}
-      <span className="flex min-w-0 flex-1 flex-col overflow-hidden sm:hidden">
-        <span className="truncate font-mono text-xs text-foreground">{name}</span>
-        {dir ? (
-          <span className="truncate font-mono text-[11px] text-muted-foreground" style={{ overflowWrap: "anywhere" }}>
-            {dir}
-          </span>
-        ) : null}
-      </span>
+      <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{name}</span>
       {stamp ? (
         <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground sm:inline">{stamp}</span>
       ) : null}
+    </div>
+  );
+}
+
+interface WorkspaceFileTreeFolderNode {
+  kind: "folder";
+  key: string;
+  name: string;
+  depth: number;
+  children: WorkspaceFileTreeNode[];
+}
+
+interface WorkspaceFileTreeFileNode {
+  kind: "file";
+  key: string;
+  item: WorkspaceFileListItem;
+  depth: number;
+}
+
+type WorkspaceFileTreeNode = WorkspaceFileTreeFolderNode | WorkspaceFileTreeFileNode;
+
+interface MutableTreeFolder {
+  kind: "folder";
+  key: string;
+  name: string;
+  depth: number;
+  folders: Map<string, MutableTreeFolder>;
+  files: WorkspaceFileTreeFileNode[];
+}
+
+function itemKey(item: WorkspaceFileListItem): string {
+  return `${item.workspaceId}:${item.relativePath}`;
+}
+
+function compareTreeNodes(a: WorkspaceFileTreeNode, b: WorkspaceFileTreeNode): number {
+  if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+  const aName = a.kind === "folder" ? a.name : basename(a.item.relativePath);
+  const bName = b.kind === "folder" ? b.name : basename(b.item.relativePath);
+  return aName.localeCompare(bName);
+}
+
+function finalizeTreeFolder(folder: MutableTreeFolder): WorkspaceFileTreeFolderNode {
+  const children: WorkspaceFileTreeNode[] = [
+    ...Array.from(folder.folders.values()).map(finalizeTreeFolder),
+    ...folder.files,
+  ];
+  children.sort(compareTreeNodes);
+  return {
+    kind: "folder",
+    key: folder.key,
+    name: folder.name,
+    depth: folder.depth,
+    children,
+  };
+}
+
+function buildWorkspaceFileTree(items: WorkspaceFileListItem[], rootPath: string | null | undefined) {
+  const rootPrefix = normalizeFolderPrefix(rootPath);
+  const root: MutableTreeFolder = {
+    kind: "folder",
+    key: "__root__",
+    name: "",
+    depth: -1,
+    folders: new Map(),
+    files: [],
+  };
+
+  for (const item of items) {
+    const path = item.relativePath.startsWith(rootPrefix)
+      ? item.relativePath.slice(rootPrefix.length)
+      : item.relativePath;
+    const segments = path.split("/").filter(Boolean);
+    const fileName = segments.pop() ?? basename(item.relativePath);
+    let cursor = root;
+    let currentPath = rootPrefix.replace(/\/$/, "");
+    for (const segment of segments) {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+      let folder = cursor.folders.get(segment);
+      if (!folder) {
+        folder = {
+          kind: "folder",
+          key: currentPath,
+          name: segment,
+          depth: cursor.depth + 1,
+          folders: new Map(),
+          files: [],
+        };
+        cursor.folders.set(segment, folder);
+      }
+      cursor = folder;
+    }
+    cursor.files.push({
+      kind: "file",
+      key: itemKey(item),
+      item: { ...item, title: fileName },
+      depth: cursor.depth + 1,
+    });
+  }
+
+  const tree = finalizeTreeFolder(root);
+  return tree.children;
+}
+
+interface WorkspaceFileTreeProps {
+  nodes: WorkspaceFileTreeNode[];
+  listboxId: string;
+  highlightedItemKey: string | null;
+  collapsedFolders: Set<string>;
+  showTimestamp: boolean;
+  onToggleFolder: (key: string) => void;
+  onOpen: (item: WorkspaceFileListItem) => void;
+  onHoverFile: (item: WorkspaceFileListItem) => void;
+}
+
+function WorkspaceFileTree({
+  nodes,
+  listboxId,
+  highlightedItemKey,
+  collapsedFolders,
+  showTimestamp,
+  onToggleFolder,
+  onOpen,
+  onHoverFile,
+}: WorkspaceFileTreeProps) {
+  function renderNode(node: WorkspaceFileTreeNode): ReactNode {
+    if (node.kind === "folder") {
+      const expanded = !collapsedFolders.has(node.key);
+      return (
+        <div key={node.key}>
+          <button
+            type="button"
+            role="treeitem"
+            aria-expanded={expanded}
+            title={node.key}
+            onClick={() => onToggleFolder(node.key)}
+            className="flex min-h-[32px] w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-accent/60"
+            style={{ paddingLeft: `${0.25 + node.depth * 0.875}rem` }}
+          >
+            {expanded ? (
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <FolderOpen aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{node.name}</span>
+          </button>
+          {expanded ? node.children.map(renderNode) : null}
+        </div>
+      );
+    }
+
+    return (
+      <WorkspaceFileRow
+        key={node.key}
+        item={node.item}
+        treeItemId={`${listboxId}-file-${node.key}`}
+        selected={node.key === highlightedItemKey}
+        showTimestamp={showTimestamp}
+        depth={node.depth}
+        onOpen={() => onOpen(node.item)}
+        onHover={() => onHoverFile(node.item)}
+      />
+    );
+  }
+
+  return (
+    <div role="tree" id={listboxId} aria-label="Workspace files" className="space-y-0.5 py-1">
+      {nodes.map(renderNode)}
     </div>
   );
 }
@@ -247,6 +417,7 @@ export function WorkspaceFileBrowser({
   // listing for the default (empty-query) view, per spec.
   const [recentUnavailable, setRecentUnavailable] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
 
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -342,6 +513,7 @@ export function WorkspaceFileBrowser({
   const data = listQuery.data;
   const items = useMemo(() => data?.items ?? [], [data]);
   const workspaceLabel = data?.workspace?.workspaceLabel ?? null;
+  const treeNodes = useMemo(() => buildWorkspaceFileTree(items, folderPath), [folderPath, items]);
 
   // Silent fallback: empty-query view with no change-tracking → list everything.
   useEffect(() => {
@@ -406,7 +578,35 @@ export function WorkspaceFileBrowser({
     setSelectedWorkspaceId(project?.primaryWorkspace?.id ?? project?.workspaces[0]?.id ?? null);
   }
 
-  const activeOptionId = highlightedIndex >= 0 ? `${listboxId}-opt-${highlightedIndex}` : undefined;
+  const highlightedItem = highlightedIndex >= 0 ? items[highlightedIndex] : undefined;
+  const highlightedItemKey = highlightedItem ? itemKey(highlightedItem) : null;
+  const activeOptionId = highlightedItemKey ? `${listboxId}-file-${highlightedItemKey}` : undefined;
+
+  function openItem(item: WorkspaceFileListItem) {
+    const itemTarget = item.projectId
+      ? { projectId: item.projectId, workspaceId: item.workspaceId }
+      : targetRef;
+    onOpen({
+      path: item.relativePath,
+      workspace: effectiveWorkspace,
+      ...itemTarget,
+    });
+  }
+
+  function toggleFolder(key: string) {
+    setCollapsedFolders((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function handleHoverFile(item: WorkspaceFileListItem) {
+    const key = itemKey(item);
+    const index = items.findIndex((candidate) => itemKey(candidate) === key);
+    if (index >= 0) setHighlightedIndex(index);
+  }
 
   let body: ReactNode;
   if (source === "other" && !companyId) {
@@ -470,28 +670,16 @@ export function WorkspaceFileBrowser({
     );
   } else {
     body = (
-      <div role="listbox" id={listboxId} aria-label="Workspace files" className="space-y-0.5 py-1">
-        {items.map((item, index) => (
-          <WorkspaceFileRow
-            key={`${item.workspaceId}:${item.relativePath}`}
-            item={item}
-            optionId={`${listboxId}-opt-${index}`}
-            selected={index === highlightedIndex}
-            showTimestamp={!isSearch}
-            onOpen={() => {
-              const itemTarget = item.projectId
-                ? { projectId: item.projectId, workspaceId: item.workspaceId }
-                : targetRef;
-              onOpen({
-                path: item.relativePath,
-                workspace: effectiveWorkspace,
-                ...itemTarget,
-              });
-            }}
-            onHover={() => setHighlightedIndex(index)}
-          />
-        ))}
-      </div>
+      <WorkspaceFileTree
+        nodes={treeNodes}
+        listboxId={listboxId}
+        highlightedItemKey={highlightedItemKey}
+        collapsedFolders={collapsedFolders}
+        showTimestamp={!isSearch}
+        onToggleFolder={toggleFolder}
+        onOpen={openItem}
+        onHoverFile={handleHoverFile}
+      />
     );
   }
 
@@ -581,7 +769,8 @@ export function WorkspaceFileBrowser({
       {folderPath ? (
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground" title={folderPath}>
           <FolderOpen aria-hidden="true" className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 truncate font-mono">{folderPath}</span>
+          <span className="shrink-0">Folder</span>
+          <span className="min-w-0 truncate font-mono text-foreground">{folderName(folderPath)}</span>
         </div>
       ) : null}
 

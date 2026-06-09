@@ -176,18 +176,18 @@ describe("WorkspaceFileBrowser", () => {
     return { root, onOpen };
   }
 
-  it("renders the Recently changed list as a listbox and opens a row with its relative path", () => {
+  it("renders the Recently changed files as a tree and opens a row with its relative path", () => {
     useQueryMock.mockReturnValue(
       ok(availableResponse([createItem(), createItem({ relativePath: "README.md", displayPath: "README.md" })])),
     );
 
     const { onOpen } = renderBrowser();
 
-    expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+    expect(container.querySelector('[role="tree"]')).not.toBeNull();
     expect(container.textContent).toContain("Recently changed");
     expect(container.textContent).toContain("From Isolated workspace");
 
-    const option = Array.from(container.querySelectorAll('[role="option"]')).find(
+    const option = Array.from(container.querySelectorAll('[role="treeitem"]')).find(
       (el) => el.getAttribute("title") === "ui/src/pages/IssueDetail.tsx",
     );
     expect(option).not.toBeUndefined();
@@ -196,6 +196,42 @@ describe("WorkspaceFileBrowser", () => {
       option!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
     expect(onOpen).toHaveBeenCalledWith({ path: "ui/src/pages/IssueDetail.tsx", workspace: "auto" });
+  });
+
+  it("groups nested paths into collapsible folder rows instead of repeating full paths", () => {
+    useQueryMock.mockReturnValue(
+      ok(availableResponse([
+        createItem({
+          title: "tweet.md",
+          relativePath: "videos/90-days-paperclip/tweet.md",
+          displayPath: "videos/90-days-paperclip/tweet.md",
+        }),
+        createItem({
+          title: "90-days-paperclip-1x1.mp4",
+          relativePath: "videos/90-days-paperclip/out/90-days-paperclip-1x1.mp4",
+          displayPath: "videos/90-days-paperclip/out/90-days-paperclip-1x1.mp4",
+          previewKind: "video",
+        }),
+      ])),
+    );
+
+    renderBrowser();
+
+    expect(container.querySelector('[role="tree"]')).not.toBeNull();
+    expect(container.textContent).toContain("videos");
+    expect(container.textContent).toContain("90-days-paperclip");
+    expect(container.textContent).toContain("tweet.md");
+    expect(container.textContent).toContain("90-days-paperclip-1x1.mp4");
+    expect(container.textContent).not.toContain("videos/90-days-paperclip/tweet.md");
+
+    const videosFolder = Array.from(container.querySelectorAll('button[role="treeitem"]')).find(
+      (el) => el.getAttribute("title") === "videos",
+    );
+    expect(videosFolder).not.toBeUndefined();
+    act(() => {
+      videosFolder!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    expect(container.textContent).not.toContain("tweet.md");
   });
 
   it("can render without autofocus when embedded beside a preview", () => {
@@ -234,7 +270,7 @@ describe("WorkspaceFileBrowser", () => {
     useQueryMock.mockReturnValue(ok(unavailableResponse("remote_workspace")));
     renderBrowser();
     expect(container.textContent).toContain("Remote workspace preview not supported");
-    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(container.querySelector('[role="tree"]')).toBeNull();
   });
 
   it("shows the no-workspace state when the issue has no workspace", () => {
@@ -273,7 +309,9 @@ describe("WorkspaceFileBrowser", () => {
       workspaceId: "workspace-content",
     });
 
-    const option = container.querySelector('[role="option"]')!;
+    const option = Array.from(container.querySelectorAll('[role="treeitem"]')).find(
+      (el) => el.getAttribute("title") === contentItem.displayPath,
+    )!;
     act(() => {
       option.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
@@ -308,7 +346,8 @@ describe("WorkspaceFileBrowser", () => {
       initialFolderPath: folderPath,
     });
 
-    expect(container.textContent).toContain(folderPath);
+    expect(container.textContent).toContain("bundled-skills");
+    expect(container.textContent).not.toContain(folderPath);
     expect(container.textContent).toContain("Files in folder");
     const listCall = useQueryMock.mock.calls.find(([options]) => options.queryKey?.[3] === "list");
     expect(listCall?.[0].queryKey[4]).toMatchObject({
@@ -318,7 +357,9 @@ describe("WorkspaceFileBrowser", () => {
       path: folderPath,
     });
 
-    const option = container.querySelector('[role="option"]')!;
+    const option = Array.from(container.querySelectorAll('[role="treeitem"]')).find(
+      (el) => el.getAttribute("title") === contentItem.displayPath,
+    )!;
     act(() => {
       option.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
