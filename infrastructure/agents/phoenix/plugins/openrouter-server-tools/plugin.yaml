@@ -1,0 +1,6 @@
+name: openrouter-server-tools
+version: 1.0.0
+description: "Inject OpenRouter server tools (subagent, web_search) into API requests when using OpenRouter BYOK. Configurable via config.yaml openrouter.server_tools section."
+author: Dylan Taylor
+hooks:
+  - pre_api_request

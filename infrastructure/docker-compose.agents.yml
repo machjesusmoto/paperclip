@@ -1,0 +1,321 @@
+# ============================================================
+# TAYA Agent Container Orchestration
+# ============================================================
+#
+# Runs the TAYA agent ecosystem as isolated Hermes containers,
+# orchestrated by Paperclip for issue assignment and monitoring.
+#
+# Usage:
+#   cd /home/dtaylor/paperclip
+#   docker compose -f infrastructure/docker-compose.agents.yml up -d
+#
+#   Build a specific agent:
+#     docker compose -f infrastructure/docker-compose.agents.yml build zephyr
+#
+#   Build all agents:
+#     docker compose -f infrastructure/docker-compose.agents.yml build
+#
+#   View logs:
+#     docker compose -f infrastructure/docker-compose.agents.yml logs -f zephyr
+#
+#   Stop all:
+#     docker compose -f infrastructure/docker-compose.agents.yml down
+#
+# Prerequisites:
+#   - Hermes Agent image: ghcr.io/nousresearch/hermes-agent:latest
+#   - .env file with OPENROUTER_API_KEY
+#   - Network: docker network create taya-agents (or let compose create it)
+#
+# Agent Migration Order (from TAYA-152):
+#   1. Zephyr    -> Technical Lead      [Priority 1]
+#   2. Phoenix   -> Migration Specialist [Priority 2]
+#   3. Orbit     -> DevOps              [Priority 3]
+#   4. PM        -> Project Manager     [Priority 4]
+#   5. Reviewer  -> Code Reviewer       [Priority 5]
+#   6. Researcher-> Research            [Priority 6]
+#   7. Writer    -> Technical Writer     [Priority 7]
+#   8. Khaos     -> Jayme coordination  [FINAL]
+# ============================================================
+
+x-agent-common: &agent-common
+  restart: unless-stopped
+  networks:
+    - taya-agents
+    - taya-external
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &agent-env
+    PAPERCLIP_API_URL: "http://host.docker.internal:3100"
+    PAPERCLIP_COMPANY_ID: "20376e75-ecf4-469b-a7c9-39621d952125"
+    PAPERCLIP_DEPLOYMENT_MODE: "authenticated"
+    OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+    HERMES_HOME: "/opt/data"
+    HERMES_UID: "${HERMES_UID:-1000}"
+    HERMES_GID: "${HERMES_GID:-1000}"
+    HERMES_DASHBOARD_ENABLED: "false"
+    DISCORD_ALLOW_BOTS: "mentions"
+    HERMES_GATEWAY_ENABLED: "true"
+networks:
+
+  taya-agents:
+    name: taya-agents
+    driver: bridge
+  taya-external:
+    name: taya-external
+    driver: bridge
+
+volumes:
+  agent-data-zephyr:
+    name: taya-agent-zephyr
+  agent-data-phoenix:
+    name: taya-agent-phoenix
+  agent-data-orbit:
+    name: taya-agent-orbit
+  agent-data-pm:
+    name: taya-agent-pm
+  agent-data-reviewer:
+    name: taya-agent-reviewer
+  agent-data-researcher:
+    name: taya-agent-researcher
+  agent-data-writer:
+    name: taya-agent-writer
+
+services:
+
+  zephyr:
+    <<: *agent-common
+    container_name: taya-zephyr
+    hostname: zephyr
+    image: infrastructure-zephyr:latest
+    build:
+      context: ./agents
+      dockerfile: zephyr/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "zephyr"
+      AGENT_ID: "cc4e5d4a-4e1c-4f3a-a3b7-2a4dcde50248"
+      HERMES_GATEWAY_PORT: "8642"
+      HERMES_MODEL: "${ZEPHYR_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_ZEPHYR}"
+      DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN_ZEPHYR}"
+      API_SERVER_KEY: "zephyr-gateway-5f60cef032173af216aa105810c9ad5b"
+    ports:
+      - "8742:8642"
+      - "8092:8080"
+    # NOTE: agent-config and plugins now baked into image — bind mount removed
+    volumes:
+      - /home/dtaylor/.hermes/agents/zephyr:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  phoenix:
+    <<: *agent-common
+    container_name: taya-phoenix
+    hostname: phoenix
+    image: infrastructure-phoenix:latest
+    build:
+      context: ./agents
+      dockerfile: phoenix/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "phoenix"
+      AGENT_ID: "a31e9896-52e2-4d81-b25b-6c899076602e"
+      HERMES_GATEWAY_PORT: "8643"
+      HERMES_MODEL: "${PHOENIX_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_PHOENIX}"
+      API_SERVER_KEY: "phoenix-gateway-e6c8cedd060f4c13585bf06e0c25a6cb"
+    ports:
+      - "8743:8643"
+      - "8093:8080"
+    # NOTE: agent-config + plugins now baked into image.
+    # Bind mount preserved for state continuity + restic backup visibility.
+    # Entrypoint copies baked /etc/hermes/agent-config.yaml -> /opt/data/config.yaml on startup,
+    # overwriting any stale host-side config to fix the mimo.json UID 1000 bug permanently.
+    volumes:
+      - /home/dtaylor/.hermes/agents/phoenix:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  orbit:
+    <<: *agent-common
+    container_name: taya-orbit
+    hostname: orbit
+    image: infrastructure-orbit:latest
+    build:
+      context: ./agents
+      dockerfile: orbit/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "orbit"
+      AGENT_ID: "ca4f67b4-483e-484c-8828-732b79312790"
+      HERMES_GATEWAY_PORT: "8644"
+      HERMES_MODEL: "${ORBIT_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_ORBIT}"
+      DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN_ORBIT}"
+      API_SERVER_KEY: "orbit-gateway-5ecf5423d8270b7787e3b2304e6870e0"
+    ports:
+      - "8744:8644"
+      - "8094:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    volumes:
+      - /home/dtaylor/.hermes/agents/orbit:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  pm:
+    <<: *agent-common
+    container_name: taya-pm
+    hostname: pm
+    image: infrastructure-pm:latest
+    build:
+      context: ./agents
+      dockerfile: pm/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "pm"
+      AGENT_ID: "18c3980a-3ded-4cff-8276-28a7bdfd2817"
+      HERMES_GATEWAY_PORT: "8645"
+      HERMES_MODEL: "${PM_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_PM}"
+      API_SERVER_KEY: "pm-gateway-0d7b2adcd23f0e2282fb36ac64cf2c70"
+    ports:
+      - "8745:8645"
+      - "8095:8080"
+    volumes:
+      - /home/dtaylor/.hermes/agents/pm:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  reviewer:
+    <<: *agent-common
+    container_name: taya-reviewer
+    hostname: reviewer
+    image: infrastructure-reviewer:latest
+    build:
+      context: ./agents
+      dockerfile: reviewer/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "reviewer"
+      AGENT_ID: "dc58ba9b-2296-4f88-8203-5c3539a0d1ee"
+      HERMES_GATEWAY_PORT: "8646"
+      HERMES_MODEL: "${REVIEWER_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_REVIEWER}"
+      API_SERVER_KEY: "reviewer-gateway-ed8cc8982acb39a396d69ffed0a393a7"
+    ports:
+      - "8746:8646"
+      - "8096:8080"
+    volumes:
+      - /home/dtaylor/.hermes/agents/reviewer:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  researcher:
+    <<: *agent-common
+    container_name: taya-researcher
+    hostname: researcher
+    image: infrastructure-researcher:latest
+    build:
+      context: ./agents
+      dockerfile: researcher/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "researcher"
+      AGENT_ID: "2e5863fb-cc2d-4d43-a902-559d43ddb1cb"
+      HERMES_GATEWAY_PORT: "8647"
+      HERMES_MODEL: "${RESEARCHER_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_RESEARCHER}"
+      API_SERVER_KEY: "researcher-gateway-5ff5c23007636c3f2a581a3f85b3c7bd"
+    ports:
+      - "8747:8647"
+      - "8097:8080"
+    volumes:
+      - /home/dtaylor/.hermes/agents/researcher:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  writer:
+    <<: *agent-common
+    container_name: taya-writer
+    hostname: writer
+    image: infrastructure-writer:latest
+    build:
+      context: ./agents
+      dockerfile: writer/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "writer"
+      AGENT_ID: "04ec2538-d484-40c9-8302-11e4cd23eafc"
+      HERMES_GATEWAY_PORT: "8648"
+      HERMES_MODEL: "${WRITER_MODEL:-xiaomi/mimo-v2.5-pro}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_WRITER}"
+      API_SERVER_KEY: "writer-gateway-f1b9ee4de21e5dc044de31d476b3e65f"
+    ports:
+      - "8748:8648"
+      - "8098:8080"
+    volumes:
+      - /home/dtaylor/.hermes/agents/writer:/opt/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"
+
+  khaos:
+    <<: *agent-common
+    container_name: taya-khaos
+    hostname: khaos
+    image: infrastructure-khaos:latest
+    build:
+      context: ./agents
+      dockerfile: khaos/Dockerfile
+    environment:
+      <<: *agent-env
+      AGENT_NAME: "khaos"
+      AGENT_ID: "khaos"
+      HERMES_GATEWAY_PORT: "8751"
+      HERMES_MODEL: "xiaomi/mimo-v2.5-pro"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_KHAOS}"
+      HERMES_HOME: "/opt/data"
+      DISCORD_ALLOW_BOTS: "mentions"
+      WHATSAPP_ENABLED: "true"
+    ports:
+      - "8751:8751"
+      - "9120:9120"
+      - "8099:8080"
+    volumes:
+      - /home/dtaylor/.hermes/agents/khaos:/opt/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "3.0"

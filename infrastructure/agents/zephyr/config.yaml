@@ -1,0 +1,87 @@
+# TAYA Agent config — Zephyr
+# ============================================================
+# Baked into image at /opt/data/agent-config/config.yaml
+# Runtime overrides (NOT in this file):
+#   OPENROUTER_API_KEY    per-agent OR key (Vault → .env-keys)
+#   API_SERVER_KEY        gateway auth
+#   DISCORD_BOT_TOKEN     Discord integration
+#   PAPERCLIP_API_URL     host-dep, set in x-agent-common
+# ============================================================
+
+model:
+  default: xiaomi/mimo-v2.5-pro
+  provider: openrouter
+  base_url: https://openrouter.ai/api/v1
+  api_mode: chat_completions
+
+plugins:
+  enabled:
+  - openrouter-server-tools
+  - tool-repair
+
+openrouter:
+  server_tools:
+    subagent:
+      enabled: true
+      worker_model: xiaomi/mimo-v2.5-pro
+    web_search:
+      enabled: true
+    web_fetch:
+      enabled: true
+    fusion:
+      enabled: true
+      analysis_models:
+      - xiaomi/mimo-v2.5-pro
+      - xiaomi/mimo-v2.5-pro
+      - minimax/minimax-m3
+    advisors:
+    - name: strategist
+      model: xiaomi/mimo-v2.5-pro
+    - name: creative
+      model: xiaomi/mimo-v2.5-pro
+    - name: code-reviewer
+      model: moonshotai/kimi-k2.7-code
+    preference_hints: true
+
+gateway:
+  bind: 0.0.0.0
+  platforms:
+    api_server:
+      enabled: true
+      host: 0.0.0.0
+      port: 8642
+      # key is set at runtime via API_SERVER_KEY env (in compose)
+    discord:
+      enabled: true
+      require_mention: true
+      allowed_channels: []
+      auto_thread: true
+      reactions: true
+    whatsapp:
+      enabled: false
+
+# Auxiliary tasks: local qwen3.5:9b via GB10 Ollama.
+# No Nous Portal auth needed → eliminates the "marking nous unhealthy for 60s"
+# warning that containers were hitting with `auto` aux routing.
+auxiliary:
+  vision:            { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  web_extract:       { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  compression:       { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  skills_hub:        { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  approval:          { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  mcp:               { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  title_generation:  { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  triage_specifier:  { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  kanban_decomposer: { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  profile_describer: { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+  curator:           { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1 }
+
+approvals:
+  mode: smart
+  timeout: 120
+  cron_mode: deny
+
+dashboard:
+  basic_auth:
+    username: zephyr
+    password: zephyr-agent-2026

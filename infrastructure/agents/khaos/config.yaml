@@ -1,0 +1,385 @@
+# TAYA Agent config — Khaos (Jayme's Personal Assistant)
+# ============================================================
+# Baked into image at /opt/data/agent-config/config.yaml
+# Runtime overrides (NOT in this file):
+#   OPENROUTER_API_KEY    per-agent OR key (Vault → .env-keys)
+#   API_SERVER_KEY        gateway auth
+#   WHATSAPP_*            WhatsApp bridge creds
+#   PAPERCLIP_API_URL     host-dep, set in x-agent-common
+# ============================================================
+#
+# NOTE: This is Khaos's FULL config (590 lines) — every section from the
+# host-side config is baked in. Only secrets (OR key, API_SERVER_KEY,
+# WhatsApp tokens, Open Brain key, vault ssh key) are injected at runtime.
+# State stays on host bind mount, baked config is the immutable source.
+
+model:
+  default: xiaomi/mimo-v2.5-pro
+  provider: openrouter
+  base_url: https://openrouter.ai/api/v1
+  api_mode: chat_completions
+
+providers: {}
+fallback_providers: []
+credential_pool_strategies: {}
+toolsets:
+- hermes-cli
+max_concurrent_sessions: null
+
+agent:
+  max_turns: 90
+  gateway_timeout: 1800
+  restart_drain_timeout: 180
+  api_max_retries: 3
+  service_tier: ''
+  tool_use_enforcement: auto
+  task_completion_guidance: true
+  environment_probe: true
+  environment_hint: ''
+  coding_context: auto
+  gateway_timeout_warning: 900
+  clarify_timeout: 600
+  gateway_notify_interval: 180
+  gateway_auto_continue_freshness: 3600
+  image_input_mode: auto
+  disabled_toolsets: []
+
+terminal:
+  backend: local
+  modal_mode: auto
+  cwd: .
+  timeout: 180
+  env_passthrough: []
+  home_mode: auto
+  shell_init_files: []
+  auto_source_bashrc: true
+  docker_image: nikolaik/python-nodejs:python3.11-nodejs20
+  docker_forward_env: []
+  docker_env: {}
+  singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
+  modal_image: nikolaik/python-nodejs:python3.11-nodejs20
+  daytona_image: nikolaik/python-nodejs:python3.11-nodejs20
+  container_cpu: 1
+  container_memory: 5120
+  container_disk: 51200
+  container_persistent: true
+  docker_volumes: []
+  docker_mount_cwd_to_workspace: false
+  docker_extra_args: []
+  docker_run_as_host_user: false
+  persistent_shell: true
+
+web:
+  backend: ''
+  search_backend: ''
+  extract_backend: ''
+
+browser:
+  inactivity_timeout: 120
+  command_timeout: 30
+  record_sessions: false
+  allow_private_urls: false
+  engine: auto
+  auto_local_for_private_urls: true
+  cdp_url: ''
+  dialog_policy: must_respond
+  dialog_timeout_s: 300
+  camofox:
+    managed_persistence: false
+    user_id: ''
+    session_key: ''
+    adopt_existing_tab: false
+    rewrite_loopback_urls: false
+    loopback_host_alias: host.docker.internal
+
+checkpoints:
+  enabled: false
+  max_snapshots: 20
+  max_total_size_mb: 500
+  max_file_size_mb: 10
+  auto_prune: true
+  retention_days: 7
+  delete_orphans: true
+  min_interval_hours: 24
+
+file_read_max_chars: 100000
+tool_output:
+  max_bytes: 50000
+  max_lines: 2000
+  max_line_length: 2000
+
+tool_loop_guardrails:
+  warnings_enabled: true
+  hard_stop_enabled: false
+  warn_after:
+    exact_failure: 2
+    same_tool_failure: 3
+    idempotent_no_progress: 2
+  hard_stop_after:
+    exact_failure: 5
+    same_tool_failure: 8
+    idempotent_no_progress: 5
+
+compression:
+  enabled: true
+  threshold: 0.5
+  target_ratio: 0.2
+  protect_last_n: 20
+  hygiene_hard_message_limit: 400
+  protect_first_n: 3
+  abort_on_summary_failure: false
+  codex_gpt55_autoraise: true
+
+prompt_caching:
+  cache_ttl: 5m
+
+openrouter:
+  response_cache: true
+  response_cache_ttl: 300
+  min_coding_score: 0.65
+  server_tools:
+    subagent:
+      enabled: true
+      worker_model: xiaomi/mimo-v2.5-pro
+    web_search:
+      enabled: true
+    web_fetch:
+      enabled: true
+    fusion:
+      enabled: true
+      analysis_models:
+      - xiaomi/mimo-v2.5-pro
+      - xiaomi/mimo-v2.5-pro
+      - minimax/minimax-m3
+    advisors:
+    - name: strategist
+      model: xiaomi/mimo-v2.5-pro
+    - name: creative
+      model: xiaomi/mimo-v2.5-pro
+    - name: code-reviewer
+      model: moonshotai/kimi-k2.7-code
+    preference_hints: true
+
+bedrock:
+  region: ''
+  discovery:
+    enabled: true
+    provider_filter: []
+    refresh_interval: 3600
+  guardrail:
+    guardrail_identifier: ''
+    guardrail_version: ''
+    stream_processing_mode: async
+    trace: disabled
+
+auxiliary:
+  vision:            { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 120 }
+  web_extract:       { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 360 }
+  compression:       { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 120 }
+  skills_hub:        { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 30 }
+  approval:          { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 30 }
+  mcp:               { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 30 }
+  title_generation:  { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 30 }
+  triage_specifier:  { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 120 }
+  kanban_decomposer: { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 180 }
+  profile_describer: { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 60 }
+  curator:           { provider: custom, model: qwen3.5:9b, base_url: http://100.97.181.20:11434/v1, timeout: 600 }
+
+display:
+  compact: false
+  personality: ''
+  resume_display: full
+  resume_exchanges: 10
+  resume_max_user_chars: 300
+  resume_max_assistant_chars: 200
+  resume_max_assistant_lines: 3
+  resume_skip_tool_only: true
+  busy_input_mode: interrupt
+  interface: cli
+  tui_auto_resume_recent: false
+  tui_agents_nudge: true
+  bell_on_complete: false
+  show_reasoning: false
+  streaming: false
+  timestamps: false
+  final_response_markdown: strip
+  persistent_output: true
+  persistent_output_max_lines: 200
+  persist_prompts: true
+  inline_diffs: true
+  file_mutation_verifier: true
+  credits_notices: true
+  turn_completion_explainer: true
+  show_cost: false
+  skin: default
+  language: en
+  tui_status_indicator: kaomoji
+
+dashboard:
+  basic_auth:
+    username: khaos
+    password: khaos-agent-2026
+    secret: PG8/M7hYk2rVwJM3b5wReKSJ+cE9Oqmx0iOKoHrLeQ=
+
+privacy:
+  redact_pii: false
+
+tts:
+  provider: edge
+  edge:
+    voice: en-US-AriaNeural
+
+stt:
+  enabled: true
+  provider: local
+  local:
+    model: base
+    language: ''
+
+voice:
+  record_key: ctrl+b
+  max_recording_seconds: 120
+  auto_tts: false
+  beep_enabled: true
+  silence_threshold: 200
+  silence_duration: 3.0
+
+context:
+  engine: compressor
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  write_approval: false
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  provider: openbrain
+
+delegation:
+  model: minimax/minimax-m3
+  provider: openrouter
+  inherit_mcp_toolsets: true
+  max_iterations: 50
+  max_concurrent_children: 3
+  max_spawn_depth: 1
+  orchestrator_enabled: true
+  subagent_auto_approve: false
+
+goals:
+  max_turns: 20
+
+skills:
+  external_dirs: []
+  template_vars: true
+  inline_shell: false
+  guard_agent_created: false
+  write_approval: false
+
+curator:
+  enabled: true
+  interval_hours: 168
+  min_idle_hours: 2
+  stale_after_days: 30
+  archive_after_days: 90
+  prune_builtins: true
+  backup:
+    enabled: true
+    keep: 5
+
+timezone: ''
+
+discord:
+  require_mention: true
+  auto_thread: true
+  history_backfill: true
+  history_backfill_limit: 50
+  reactions: true
+
+whatsapp: {}
+
+telegram:
+  reactions: false
+
+approvals:
+  mode: manual
+  timeout: 60
+  cron_mode: deny
+  mcp_reload_confirm: true
+  destructive_slash_confirm: true
+
+security:
+  allow_private_urls: false
+  redact_secrets: true
+  tirith_enabled: true
+  tirith_fail_open: true
+
+cron:
+  wrap_response: true
+  max_parallel_jobs: null
+
+code_execution:
+  mode: project
+
+tools:
+  tool_search:
+    enabled: auto
+
+logging:
+  level: INFO
+  max_size_mb: 5
+  backup_count: 3
+
+model_catalog:
+  enabled: true
+  url: https://hermes-agent.nousresearch.com/docs/api/model-catalog.json
+  ttl_hours: 1
+
+network:
+  force_ipv4: false
+
+gateway:
+  strict: false
+  media_delivery_allow_dirs: []
+  trust_recent_files: true
+  trust_recent_files_seconds: 600
+  platforms:
+    api_server:
+      enabled: true
+      host: 0.0.0.0
+      port: 8643
+      key: khaos-gateway-13f5695503f8bce3f1be175bfa4561b6
+    discord:
+      enabled: false
+    slack:
+      enabled: false
+    whatsapp:
+      enabled: true
+
+streaming:
+  enabled: false
+  transport: auto
+  edit_interval: 0.8
+
+sessions:
+  auto_prune: false
+  retention_days: 90
+  vacuum_after_prune: true
+  min_interval_hours: 24
+
+plugins:
+  enabled:
+  - openrouter-server-tools
+  - tool-repair
+
+mcp_servers:
+  open-brain:
+    url: https://anwaeczlwqmcjakzqjqy.supabase.co/functions/v1/open-brain-mcp
+    timeout: 120
+    connect_timeout: 30
+
+fallback_model:
+  model: minimax/minimax-m3
+  provider: openrouter
+
+provider_routing:
+  order: []
