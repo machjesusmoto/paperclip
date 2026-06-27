@@ -1,0 +1,5 @@
+{
+  "model": "default",
+  "description": "Universal repair rules applied to all models when no model-specific rules match.",
+  "repairs": []
+}

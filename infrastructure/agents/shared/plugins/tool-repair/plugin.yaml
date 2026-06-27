@@ -1,0 +1,8 @@
+name: tool-repair
+version: "1.0.0"
+description: "Deterministic tool-call argument repair harness. Applies model-aware fixes for the common tool-call formatting errors made by open-weight models (DeepSeek, Qwen, GLM, etc.) — null-for-optional stripping, object-wrapper unwrap, JSON-string array parsing, bare-to-array wrapping — and appends repair notes to results so the model learns and stops repeating the same mistakes. Pattern from Ahmad Awais's Command Code repair harness."
+author: "NousResearch / Dylan Taylor"
+hooks:
+  - transform_tool_result
+middleware:
+  - tool_request

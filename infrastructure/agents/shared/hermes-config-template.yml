@@ -1,0 +1,94 @@
+model:
+  default: ${HERMES_MODEL:-deepseek/deepseek-v4-pro}
+  provider: ${HERMES_PROVIDER:-openrouter}
+  base_url: ${HERMES_BASE_URL:-https://openrouter.ai/api/v1}
+  api_mode: chat_completions
+providers: {}
+fallback_providers: []
+credential_pool_strategies: {}
+toolsets:
+- hermes-cli
+agent:
+  max_turns: 150
+  gateway_timeout: 1800
+  restart_drain_timeout: 180
+  api_max_retries: 3
+  service_tier: ''
+  tool_use_enforcement: auto
+  task_completion_guidance: true
+  environment_probe: true
+  coding_context: auto
+  gateway_timeout_warning: 900
+  clarify_timeout: 600
+  gateway_notify_interval: 180
+  gateway_auto_continue_freshness: 3600
+  image_input_mode: auto
+  disabled_toolsets: []
+  verbose: false
+terminal:
+  backend: local
+  cwd: .
+  timeout: 180
+  env_passthrough: []
+  auto_source_bashrc: false
+  persistent_shell: true
+  lifetime_seconds: 300
+web:
+  backend: firecrawl
+  use_gateway: true
+browser:
+  enabled: false
+image_gen:
+  use_gateway: false
+gateway:
+  host: 0.0.0.0
+  port: ${HERMES_GATEWAY_PORT:-8642}
+dashboard:
+  enabled: false
+provider_routing:
+  order: []
+fallback_model:
+  model: minimax/minimax-m3
+  provider: openrouter
+plugins:
+  enabled:
+  - disk-cleanup
+  - fal
+  - nous
+  - nous-provider
+  - openrouter-provider
+  - openrouter-server-tools
+  - web-brave-free
+  disabled: []
+openrouter:
+  response_cache: true
+  response_cache_ttl: 300
+  server_tools:
+    subagent:
+      enabled: true
+      worker_model: deepseek/deepseek-v4-pro
+    web_search:
+      enabled: true
+    web_fetch:
+      enabled: true
+    fusion:
+      enabled: true
+      analysis_models:
+      - deepseek/deepseek-v4-pro
+      - xiaomi/mimo-v2.5-pro
+      - minimax/minimax-m3
+    advisors:
+    - name: strategist
+      model: deepseek/deepseek-v4-pro
+    - name: creative
+      model: xiaomi/mimo-v2.5-pro
+    - name: code-reviewer
+      model: moonshotai/kimi-k2.7-code
+    preference_hints: true
+mcp_servers:
+  open-brain:
+    url: https://fuquvnggriljwkzbfgnm.supabase.co/functions/v1/open-brain-mcp
+    headers:
+      x-brain-key: ${OPEN_BRAIN_KEY:-}
+    timeout: 120
+    connect_timeout: 30

@@ -1,0 +1,27 @@
+{
+  "model": "kimi",
+  "description": "Model-specific repair rules for Kimi / Moonshot models (Kimi K2.6, Kimi K2.5, Kimi-1.5). Per the Command Code talk, Kimi K2.6 makes far fewer tool-call mistakes than DeepSeek — it's the author's favorite open model. These rules are lightweight fallbacks for edge cases.",
+  "repairs": [
+    {
+      "_comment": "Kimi K2.6 occasionally sends 'instruction' when tools expect 'prompt'",
+      "type": "param_rename",
+      "wrong": "instruction",
+      "correct": "prompt"
+    },
+    {
+      "_comment": "Kimi sometimes uses 'query_string' when tools expect 'query'",
+      "type": "param_rename",
+      "wrong": "query_string",
+      "correct": "query"
+    },
+    {
+      "_comment": "Kimi string-number repair for numeric params (rare but present at scale)",
+      "type": "string_num_coerce",
+      "param": "timeout"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "limit"
+    }
+  ]
+}
