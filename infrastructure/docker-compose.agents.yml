@@ -23,7 +23,9 @@
 #
 # Prerequisites:
 #   - Hermes Agent image: ghcr.io/nousresearch/hermes-agent:latest
-#   - .env file with OPENROUTER_API_KEY
+#   - .env file with OPENROUTER_API_KEY (per-agent overrides via
+#     OPENROUTER_API_KEY_<AGENT>; sync from Vault via
+#     infrastructure/scripts/sync-env-from-vault.py)
 #   - Network: docker network create taya-agents (or let compose create it)
 #
 # Agent Migration Order (from TAYA-152):
@@ -35,6 +37,25 @@
 #   6. Researcher-> Research            [Priority 6]
 #   7. Writer    -> Technical Writer     [Priority 7]
 #   8. Khaos     -> Jayme coordination  [FINAL]
+#
+# ⚠️ Gateway port reality (verified 2026-06-27):
+#
+#   HERMES_GATEWAY_PORT env var AND gateway.platforms.api_server.port
+#   in baked config.yaml are BOTH IGNORED by `hermes gateway run`.
+#   The CLI allocates ports via _allocate_gateway_port (default 8642;
+#   Khaos gets 8643 because it starts after Zephyr takes 8642).
+#
+#   The host port mappings `874X → 8642` below only function because
+#   each container has its own network namespace — they're cosmetic,
+#   not load-bearing. Paperclip talks to the container API server
+#   (port 8080 → 809X host) for LLM dispatch, not the gateway.
+#
+#   What actually maps to the host (the only ports that matter):
+#     Container API server: 8092-8099 host → 8080 container
+#     Khaos dashboard:      9120 host → 9120 container
+#
+#   Internal-only (gateway): all on 8642 inside container (Khaos 8643),
+#   not host-mapped.
 # ============================================================
 
 x-agent-common: &agent-common
@@ -94,12 +115,15 @@ services:
       <<: *agent-env
       AGENT_NAME: "zephyr"
       AGENT_ID: "cc4e5d4a-4e1c-4f3a-a3b7-2a4dcde50248"
-      HERMES_GATEWAY_PORT: "8642"
       HERMES_MODEL: "${ZEPHYR_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_ZEPHYR}"
       DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN_ZEPHYR}"
       API_SERVER_KEY: "zephyr-gateway-5f60cef032173af216aa105810c9ad5b"
     ports:
+      # Container API server (the port Paperclip actually uses).
+      # 8742:8642 was a phantom gateway mapping (HERMES_GATEWAY_PORT is
+      # ignored); kept cosmetic for now since each container has its own
+      # netns. Remove if you want a fully minimal compose.
       - "8742:8642"
       - "8092:8080"
     # NOTE: agent-config and plugins now baked into image — bind mount removed
@@ -123,12 +147,11 @@ services:
       <<: *agent-env
       AGENT_NAME: "phoenix"
       AGENT_ID: "a31e9896-52e2-4d81-b25b-6c899076602e"
-      HERMES_GATEWAY_PORT: "8643"
       HERMES_MODEL: "${PHOENIX_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_PHOENIX}"
       API_SERVER_KEY: "phoenix-gateway-e6c8cedd060f4c13585bf06e0c25a6cb"
     ports:
-      - "8743:8643"
+      - "8743:8642"  # see header note — gateway port is cosmetic
       - "8093:8080"
     # NOTE: agent-config + plugins now baked into image.
     # Bind mount preserved for state continuity + restic backup visibility.
@@ -154,13 +177,12 @@ services:
       <<: *agent-env
       AGENT_NAME: "orbit"
       AGENT_ID: "ca4f67b4-483e-484c-8828-732b79312790"
-      HERMES_GATEWAY_PORT: "8644"
       HERMES_MODEL: "${ORBIT_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_ORBIT}"
       DISCORD_BOT_TOKEN: "${DISCORD_BOT_TOKEN_ORBIT}"
       API_SERVER_KEY: "orbit-gateway-5ecf5423d8270b7787e3b2304e6870e0"
     ports:
-      - "8744:8644"
+      - "8744:8642"
       - "8094:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
@@ -188,12 +210,11 @@ services:
       <<: *agent-env
       AGENT_NAME: "pm"
       AGENT_ID: "18c3980a-3ded-4cff-8276-28a7bdfd2817"
-      HERMES_GATEWAY_PORT: "8645"
       HERMES_MODEL: "${PM_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_PM}"
       API_SERVER_KEY: "pm-gateway-0d7b2adcd23f0e2282fb36ac64cf2c70"
     ports:
-      - "8745:8645"
+      - "8745:8642"
       - "8095:8080"
     volumes:
       - /home/dtaylor/.hermes/agents/pm:/opt/data
@@ -215,12 +236,11 @@ services:
       <<: *agent-env
       AGENT_NAME: "reviewer"
       AGENT_ID: "dc58ba9b-2296-4f88-8203-5c3539a0d1ee"
-      HERMES_GATEWAY_PORT: "8646"
       HERMES_MODEL: "${REVIEWER_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_REVIEWER}"
       API_SERVER_KEY: "reviewer-gateway-ed8cc8982acb39a396d69ffed0a393a7"
     ports:
-      - "8746:8646"
+      - "8746:8642"
       - "8096:8080"
     volumes:
       - /home/dtaylor/.hermes/agents/reviewer:/opt/data
@@ -242,12 +262,11 @@ services:
       <<: *agent-env
       AGENT_NAME: "researcher"
       AGENT_ID: "2e5863fb-cc2d-4d43-a902-559d43ddb1cb"
-      HERMES_GATEWAY_PORT: "8647"
       HERMES_MODEL: "${RESEARCHER_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_RESEARCHER}"
       API_SERVER_KEY: "researcher-gateway-5ff5c23007636c3f2a581a3f85b3c7bd"
     ports:
-      - "8747:8647"
+      - "8747:8642"
       - "8097:8080"
     volumes:
       - /home/dtaylor/.hermes/agents/researcher:/opt/data
@@ -269,12 +288,11 @@ services:
       <<: *agent-env
       AGENT_NAME: "writer"
       AGENT_ID: "04ec2538-d484-40c9-8302-11e4cd23eafc"
-      HERMES_GATEWAY_PORT: "8648"
       HERMES_MODEL: "${WRITER_MODEL:-xiaomi/mimo-v2.5-pro}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_WRITER}"
       API_SERVER_KEY: "writer-gateway-f1b9ee4de21e5dc044de31d476b3e65f"
     ports:
-      - "8748:8648"
+      - "8748:8642"
       - "8098:8080"
     volumes:
       - /home/dtaylor/.hermes/agents/writer:/opt/data
@@ -296,16 +314,21 @@ services:
       <<: *agent-env
       AGENT_NAME: "khaos"
       AGENT_ID: "khaos"
-      HERMES_GATEWAY_PORT: "8751"
       HERMES_MODEL: "xiaomi/mimo-v2.5-pro"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_KHAOS}"
       HERMES_HOME: "/opt/data"
       DISCORD_ALLOW_BOTS: "mentions"
       WHATSAPP_ENABLED: "true"
     ports:
-      - "8751:8751"
-      - "9120:9120"
-      - "8099:8080"
+      # Khaos: only the dashboard (9120) and container API (8099) are
+      # host-mapped. The previous 8751:8751 phantom gateway mapping was
+      # removed — Hermes ignores HERMES_GATEWAY_PORT, so nothing was
+      # listening on container:8751 anyway. Khaos's gateway runs on
+      # container:8643 internally (allocated by _allocate_gateway_port
+      # after Zephyr takes 8642); only the Paperclip adapter talks to
+      # it, via the container API server at 8099.
+      - "9120:9120"   # dashboard (desktop app)
+      - "8099:8080"   # container API server (Paperclip)
     volumes:
       - /home/dtaylor/.hermes/agents/khaos:/opt/data
     healthcheck:
@@ -317,6 +340,5 @@ services:
     deploy:
       resources:
         limits:
-          memory: 10G
+          memory: 10G   # bumped from 8G (Jun 27 2026) — 4-service entrypoint
           cpus: "3.0"
-# Khaos bumped to 10G (Jun 27 2026) — heavier 4-service entrypoint

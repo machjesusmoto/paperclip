@@ -217,24 +217,34 @@ Fleet standard is 8GB RAM / 3 cores per agent. Khaos is currently held at 8GB; b
 
 ### 4.6 Bump the gateway port
 
-Edit `<name>/config.yaml`:
+**⚠️ As of 2026-06-27: `HERMES_GATEWAY_PORT` and `gateway.platforms.api_server.port` are BOTH IGNORED by `hermes gateway run`.** The CLI always allocates via `_allocate_gateway_port` (default 8642 for the first agent, then +1 for each subsequent one in container-start order). This section is preserved for when hermes is patched to honor the env var — until then, the only way to "change the port" is to change the order in which containers start.
+
+For now, the gateway port mappings in compose are **cosmetic** — they only work because each container has its own network namespace. Paperclip talks to the container API server (port 8080 → 809X host), NOT the gateway directly, so this doesn't break anything.
+
+If you genuinely need to expose the gateway on a different host port (rare):
 
 ```yaml
-gateway:
-  platforms:
-    api_server:
-      port: 8642   # ← change this
+# docker-compose.agents.yml
+ports:
+  - "NEW_HOST_PORT:8642"   # point at the gateway's actual container port
 ```
 
-And update the matching `HERMES_GATEWAY_PORT` env var in `docker-compose.agents.yml` for that service. **They must match** — if they don't, the gateway binds on the baked port but compose port-mapping uses the env port, so the host port won't reach the gateway.
+Verify the actual gateway port via `/proc/net/tcp` inside the container:
 
-Then `docker compose -f docker-compose.agents.yml build <name> && docker compose -f docker-compose.agents.yml up -d <name>`.
+```sh
+docker exec taya-zephyr python3 -c "
+with open('/proc/net/tcp') as f:
+    for line in f.readlines()[1:]:
+        port = int(line.split()[1].split(':')[1], 16)
+        if port in (8642, 8643, 8751):
+            print(f'gateway on: {port}')"
+```
 
 ### 4.7 Add a brand-new agent
 
 1. Copy `infrastructure/agents/<closest-existing-agent>/` to `infrastructure/agents/<new-name>/`.
 2. Copy `infrastructure/profiles/<closest>.yml` to `infrastructure/profiles/<new-name>.yml`.
-3. Edit `<new-name>/config.yaml`: set `model`, `gateway.platforms.api_server.port` (next free), `agent_id`, role.
+3. Edit `<new-name>/config.yaml`: set `model`, `gateway.platforms.api_server.port` (no-op — see §4.6; will be ignored but set it for documentation), `agent_id`, role.
 4. Edit `<new-name>/Dockerfile`: set all `ARG` defaults to match the new agent.
 5. Add a service entry in `docker-compose.agents.yml` (copy an existing one, change `image:`, `container_name:`, `hostname:`, `volumes:`, `ports:`, `API_SERVER_KEY`).
 6. Add `OPENROUTER_API_KEY_<NEW>` to `infrastructure/.env`.
@@ -301,7 +311,11 @@ Then `docker compose -f docker-compose.agents.yml build <name> && docker compose
 ### 5.8 Khaos (Jayme's Personal Assistant) — **Special Case**
 
 - **Special:** uses its own `khaos/entrypoint.sh` instead of `shared/entrypoint.sh`. Runs WhatsApp bridge + dashboard + container-API server + gateway (4 services in 1 container).
-- **Gateway port:** 8643 baked, **but compose port mapping is 8751→8751** (not 8751→8643). Container API is 8099.
+- **Ports (verified 2026-06-27):**
+  - Dashboard: 9120 host → 9120 container (desktop app connects here).
+  - Container API: 8099 host → 8080 container (Paperclip dispatches LLM calls via this).
+  - Gateway: container:8643 (internal only, allocated by `_allocate_gateway_port` — see §4.6). Not host-mapped; nothing on the host talks to it directly.
+  - WhatsApp bridge: container:3000 (internal only).
 - **Skills baked:** `humanizer songwriting-and-ai-music youtube-content gif-search heartmula songsee`.
 - **Auxiliary:** full qwen3.5:9b routing.
 - **Missing identity files:** only `SOUL.md` + `agent-config/` exist in `~/.hermes/agents/khaos/`. Missing: `AGENTS.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `TOOLS.md`. (todo #9)
