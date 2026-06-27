@@ -139,7 +139,35 @@ OPENROUTER_API_KEY_<NAME>=new-key-here
 
 Then `docker compose -f docker-compose.agents.yml up -d <name>` (restart only, no build).
 
-The per-agent OR keys live in Vault at `secret/hermes/openrouter-api-keys` and are refreshed via `~/.hermes/scripts/fetch-agent-or-keys.sh` whenever the Vault values rotate. To rotate Vault-side: SSH to seattle-colo, then `vault kv put secret/hermes/openrouter-api-keys/<name>=newkey`.
+The per-agent OR keys live in Vault at `secret/hermes/openrouter-api-keys` and are refreshed via `python3 infrastructure/scripts/sync-env-from-vault.py` whenever the Vault values rotate. To rotate Vault-side:
+
+```sh
+# Update Vault via AppRole (preferred — no SSH)
+python3 infrastructure/scripts/sync-env-from-vault.py
+# Regenerates infrastructure/.env from Vault, mode 600
+
+# Verify .env matches Vault (use in cron health check)
+python3 infrastructure/scripts/sync-env-from-vault.py --check
+```
+
+After syncing, force-recreate the affected agent to pick up the new key:
+
+```sh
+docker compose -f infrastructure/docker-compose.agents.yml up -d <name>
+```
+
+**Khaos is special:** its bind-mounted `~/.hermes/agents/khaos/.env` (host file) must be patched in-container. The sync script handles Docker agents but not the host-profile bind mount. To update Khaos:
+
+```sh
+# Run the patch script on the host, which fetches key from Vault and patches in-container
+docker exec -i taya-khaos sh -c 'cat > /tmp/patch.py' < infrastructure/scripts/_patch-khaos-key.py
+docker exec -e NEW_KEY="$(...)" taya-khaos python3 /tmp/patch.py
+docker exec taya-khaos rm /tmp/patch.py
+```
+
+Or as a one-shot: `docker restart taya-khaos` after the sync script regenerates `.env` and patches the host `~/.hermes/agents/khaos/.env` via the patch script.
+
+**Field name inconsistency:** Zephyr's Discord Vault entry uses `token` (lowercase), Orbit's uses `Token` (capital T). The sync script handles both.
 
 ### 4.3 Add or change an auxiliary model
 
