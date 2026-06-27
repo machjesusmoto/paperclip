@@ -317,5 +317,6 @@ services:
     deploy:
       resources:
         limits:
-          memory: 8G
+          memory: 10G
           cpus: "3.0"
+# Khaos bumped to 10G (Jun 27 2026) — heavier 4-service entrypoint
