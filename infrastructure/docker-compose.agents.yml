@@ -316,6 +316,7 @@ services:
       AGENT_ID: "khaos"
       HERMES_MODEL: "xiaomi/mimo-v2.5-pro"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_KHAOS}"
+      OPEN_BRAIN_KEY: "${OPEN_BRAIN_KEY_KHAOS}"
       HERMES_HOME: "/opt/data"
       DISCORD_ALLOW_BOTS: "mentions"
       WHATSAPP_ENABLED: "true"

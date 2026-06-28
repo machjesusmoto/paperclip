@@ -70,6 +70,11 @@ def vault_read(token: str, path: str) -> dict:
         return json.loads(resp.read())["data"]["data"]
 
 
+# Open-Brain MCP access keys (per-agent isolated Supabase tables)
+BRAIN_KEYS = {
+    "OPEN_BRAIN_KEY_KHAOS": "paperclip/services/khaos-brain-supabase",
+}
+
 def collect(token: str) -> dict:
     """Return {env_var_name: value} ready for .env file."""
     or_keys = vault_read(token, OR_KEYS_PATH)
@@ -85,6 +90,12 @@ def collect(token: str) -> dict:
         if not tok:
             sys.exit(f"ERROR: no token field at {vault_path} (looked for 'token' and 'Token')")
         out[env_var] = tok
+    for env_var, vault_path in BRAIN_KEYS.items():
+        d = vault_read(token, vault_path)
+        brain_key = d.get("mcp-access-key")
+        if not brain_key:
+            sys.exit(f"ERROR: no mcp-access-key at {vault_path}")
+        out[env_var] = brain_key
     return out
 
 
@@ -101,6 +112,10 @@ def render_env(values: dict) -> str:
     lines.append("")
     for env_var, vault_path in DISCORD_TOKENS.items():
         lines.append(f"# Discord bot token from Vault path '{vault_path}'")
+        lines.append(f"{env_var}={values[env_var]}")
+    lines.append("")
+    for env_var, vault_path in BRAIN_KEYS.items():
+        lines.append(f"# Open-Brain MCP key from Vault path '{vault_path}'")
         lines.append(f"{env_var}={values[env_var]}")
     lines.append("")
     return "\n".join(lines)
