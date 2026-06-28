@@ -1,0 +1,41 @@
+{
+  "model": "qwen",
+  "description": "Model-specific repair rules for Qwen family models (Qwen2.5, Qwen-Max, QwQ, Qwen-Coder). Qwen tends to make fewer null/array errors than DeepSeek but has parameter naming quirks and string-number issues.",
+  "repairs": [
+    {
+      "_comment": "Qwen sometimes sends 'folder' or 'directory' when tools expect 'path'",
+      "type": "param_rename",
+      "wrong": "folder",
+      "correct": "path"
+    },
+    {
+      "_comment": "Qwen occasionally uses 'cmd' instead of 'command'",
+      "type": "param_rename",
+      "wrong": "cmd",
+      "correct": "command"
+    },
+    {
+      "_comment": "Qwen sometimes sends 'text' when tools expect 'content'",
+      "type": "param_rename",
+      "wrong": "text",
+      "correct": "content"
+    },
+    {
+      "_comment": "Qwen stringifies numeric params",
+      "type": "string_num_coerce",
+      "param": "timeout"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "limit"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "offset"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "duration_ms"
+    }
+  ]
+}

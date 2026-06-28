@@ -1,0 +1,73 @@
+{
+  "model": "mimo",
+  "description": "Model-specific repair rules for the xiaomi/mimo family (MiMo-V2.5, MiMo-V2.5-Pro). MiMo is a budget automation model with ~94% cache hit rate — used heavily for script-driven cron jobs and monitoring. It makes more frequent tool-call formatting errors than frontier models but benefits disproportionately from targeted repairs because its prompts are highly repetitive (high cache → cheap to fix). Known failure modes: string-number coercion on script output parameters, parameter name confusion with positional args, and the universal 'Big Four' (handled by plugin core).",
+  "repairs": [
+    {
+      "_comment": "MiMo frequently sends 'cmd' when tools expect 'command' (shell tool calls)",
+      "type": "param_rename",
+      "wrong": "cmd",
+      "correct": "command"
+    },
+    {
+      "_comment": "MiMo uses 'msg' when tools expect 'message' (messaging tools)",
+      "type": "param_rename",
+      "wrong": "msg",
+      "correct": "message"
+    },
+    {
+      "_comment": "MiMo sends 'path_to_file' when tools expect 'path' or 'file_path'",
+      "type": "param_rename",
+      "wrong": "path_to_file",
+      "correct": "path"
+    },
+    {
+      "_comment": "MiMo sends 'output_dir' when tools expect 'workdir'",
+      "type": "param_rename",
+      "wrong": "output_dir",
+      "correct": "workdir"
+    },
+    {
+      "_comment": "MiMo sends 'prompt' when tools expect 'query' (search tools)",
+      "type": "param_rename",
+      "wrong": "prompt",
+      "correct": "query"
+    },
+    {
+      "_comment": "MiMo string-number coercion — frequent due to script output being all strings",
+      "type": "string_num_coerce",
+      "param": "timeout"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "limit"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "offset"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "duration_ms"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "max_tokens"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "temperature"
+    },
+    {
+      "_comment": "MiMo sometimes sends 'content' when tools expect 'text' (TTS, messaging)",
+      "type": "param_rename",
+      "wrong": "content",
+      "correct": "text"
+    },
+    {
+      "_comment": "MiMo sends 'delay' when tools expect 'timeout' or 'duration_ms'",
+      "type": "param_rename",
+      "wrong": "delay",
+      "correct": "timeout"
+    }
+  ]
+}

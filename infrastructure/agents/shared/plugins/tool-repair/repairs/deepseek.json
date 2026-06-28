@@ -1,0 +1,35 @@
+{
+  "model": "deepseek",
+  "description": "Model-specific repair rules for DeepSeek family models (V4 Pro, V4 Flash, V3, R1). These are additive to the universal repairs (null-strip, object-unwrap, JSON-array-parse) already applied by the plugin.",
+  "repairs": [
+    {
+      "_comment": "DeepSeek Flash often sends 'dir' or 'directory' when tools expect 'workdir'",
+      "type": "param_rename",
+      "wrong": "dir",
+      "correct": "workdir"
+    },
+    {
+      "_comment": "DeepSeek sometimes sends 'cwd' instead of 'workdir'",
+      "type": "param_rename",
+      "wrong": "cwd",
+      "correct": "workdir"
+    },
+    {
+      "_comment": "DeepSeek V4 Pro often sends string numbers for tool params like timeout, limit, offset",
+      "type": "string_num_coerce",
+      "param": "timeout"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "limit"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "offset"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "duration_ms"
+    }
+  ]
+}

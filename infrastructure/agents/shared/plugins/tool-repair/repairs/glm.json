@@ -1,0 +1,31 @@
+{
+  "model": "glm",
+  "description": "Model-specific repair rules for GLM / Zhipu AI models (GLM-4, GLM-4-Flash, GLM-4-Plus). Per the Command Code talk, GLM makes fewer tool-call mistakes than DeepSeek, but still benefits from targeted repairs for edge cases.",
+  "repairs": [
+    {
+      "_comment": "GLM sometimes uses 'name' when tools expect 'path' (file operations)",
+      "type": "param_rename",
+      "wrong": "name",
+      "correct": "path"
+    },
+    {
+      "_comment": "GLM occasionally sends 'value' when tools expect 'content'",
+      "type": "param_rename",
+      "wrong": "value",
+      "correct": "content"
+    },
+    {
+      "_comment": "GLM string-number repair for numeric params",
+      "type": "string_num_coerce",
+      "param": "timeout"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "limit"
+    },
+    {
+      "type": "string_num_coerce",
+      "param": "offset"
+    }
+  ]
+}
